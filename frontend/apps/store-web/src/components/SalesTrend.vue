@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+const props=defineProps<{rows:{label:string;amount:number;orders:number}[]}>()
+const selected=ref<number|null>(null)
+const max=computed(()=>Math.max(100,...props.rows.map(x=>x.amount)))
+const points=computed(()=>props.rows.map((r,i)=>({x:56+i*660/Math.max(1,props.rows.length-1),y:235-r.amount/max.value*185,...r})))
+const path=computed(()=>points.value.map((p,i)=>i?`C ${(p.x+points.value[i-1].x)/2} ${points.value[i-1].y}, ${(p.x+points.value[i-1].x)/2} ${p.y}, ${p.x} ${p.y}`:`M ${p.x} ${p.y}`).join(' '))
+</script>
+<template><div class="sales-chart"><div class="chart-tooltip" aria-live="polite">{{selected!==null&&points[selected]?`${points[selected].label} · 销售额 ¥${(points[selected].amount/100).toFixed(2)} · ${points[selected].orders} 笔`:'悬停曲线查看销售额及订单数'}}</div><svg viewBox="0 0 750 280" role="img" aria-label="本店销售额趋势曲线"><g v-for="n in 5" :key="n"><line x1="56" x2="720" :y1="235-(n-1)*46.25" :y2="235-(n-1)*46.25" stroke="#e8eef7" stroke-dasharray="4 5"/><text x="44" :y="239-(n-1)*46.25" text-anchor="end">{{(max*(n-1)/400).toLocaleString('zh-CN',{maximumFractionDigits:0})}}</text></g><path v-if="points.length" :d="`${path} L ${points[points.length-1].x} 235 L 56 235 Z`" fill="#3478f613"/><path :d="path" fill="none" stroke="#3478f6" stroke-width="3"/><g v-for="(p,i) in points" :key="i"><circle :cx="p.x" :cy="p.y" :r="selected===i?5:3" fill="#3478f6"/><circle :cx="p.x" :cy="p.y" r="12" fill="transparent" tabindex="0" @mouseenter="selected=i" @focus="selected=i"><title>{{p.label}} · ¥{{(p.amount/100).toFixed(2)}} · {{p.orders}} 笔</title></circle><text v-if="points.length<=8||i%Math.ceil(points.length/7)===0||i===points.length-1" :x="p.x" y="265" text-anchor="middle">{{p.label}}</text></g><text x="15" y="20">元</text></svg></div></template>
+<style scoped>.sales-chart{width:100%;min-height:250px}.sales-chart svg{display:block;width:100%;min-height:240px}.sales-chart text{fill:#90a0b6;font-size:10px;font-family:inherit}.chart-tooltip{text-align:right;font-size:11px;color:#8091aa;height:24px;padding-right:10px}</style>

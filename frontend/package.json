@@ -1,0 +1,24 @@
+{
+  "name": "smart-merchant-saas-frontend",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev:platform": "pnpm --filter @smart-merchant/platform-web dev",
+    "dev:merchant": "pnpm --filter @smart-merchant/merchant-web dev",
+    "dev:store": "pnpm --filter @smart-merchant/store-web dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "dev:consumer": "pnpm --filter @smart-merchant/consumer-web dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@vitejs/plugin-vue": "6.0.1",
+    "typescript": "5.8.3",
+    "vite": "7.0.6",
+    "vitest": "3.2.4",
+    "vue-tsc": "2.2.12"
+  }
+}

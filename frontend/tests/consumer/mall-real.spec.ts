@@ -1,0 +1,142 @@
+import { enterRealStore } from './marketplace-helper'
+import { test, expect } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+test.describe('department store through marketplace',()=>{
+  test.skip(process.env.H5_MALL_E2E!=='1','Opt in with H5_MALL_E2E=1 after seed-department-store.py')
+  test('all entry parameters open the platform directory',async({page})=>{
+    for(const entry of ['', 'invalid', 'undefined', '%3Cbrand-id%3E']){
+      await page.goto('/?tenantId='+entry)
+      await expect(page.getByRole('heading',{name:'入驻门店',exact:true})).toBeVisible()
+      expect(new URL(page.url()).searchParams.has('tenantId')).toBe(false)
+      await expect(page.getByText('商城暂未就绪',{exact:true})).toHaveCount(0)
+    }
+  })
+  test('clean root, eight categories, real images, variant search and mobile layout',async({page,request})=>{
+    const tenantId=JSON.parse(readFileSync(resolve('../runtime-logs/mall-accounts.json'),'utf8')).tenantId
+    await enterRealStore(page,tenantId)
+    await expect(page.getByRole('link',{name:/悦享百货/})).toBeVisible()
+    await expect(page.locator('.categories button')).toHaveCount(9)
+    await expect(page).toHaveURL('http://127.0.0.1:5177/')
+    const imageUrls=await page.locator('.product-image>img').evaluateAll(images=>images.map(i=>(i as HTMLImageElement).getAttribute('src')))
+    expect(imageUrls).toHaveLength(24)
+    for(const url of new Set(imageUrls))expect((await request.get('http://127.0.0.1:5177'+url)).ok()).toBe(true)
+    await page.screenshot({path:'apps/consumer-web/qa/mall-home.png'})
+    await page.locator('.categories').getByRole('button',{name:'数码家电'}).click()
+    await expect(page.locator('.product-row')).toHaveCount(3)
+    await expect(page.getByRole('button',{name:'无线头戴式耳机',exact:true})).toBeVisible()
+    await page.locator('.categories').getByRole('button',{name:'全部商品',exact:true}).click()
+    await page.getByLabel('搜索商品').fill('XL')
+    // Search resets the category and searches all SKU specifications of a product.
+    await expect(page.getByRole('button',{name:'基础纯棉短袖',exact:true})).toBeVisible()
+    for(const width of [320,390,480]){
+      await page.setViewportSize({width,height:844})
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+    }
+    await page.getByLabel('搜索商品').fill('')
+    await page.screenshot({path:'apps/consumer-web/qa/mall-catalog.png'})
+  })
+  test('mall SKU purchase links to its store and refunds through headquarters',async({page,request})=>{
+    test.setTimeout(90000)
+    const account=JSON.parse(readFileSync(resolve('../runtime-logs/mall-accounts.json'),'utf8'))
+    const api='http://127.0.0.1:8080'
+    const owner=await request.post(api+'/api/auth/v1/login',{data:account.owner})
+    const worker=await request.post(api+'/api/auth/v1/login',{data:account.store})
+    expect(owner.ok()).toBe(true);expect(worker.ok()).toBe(true)
+    const ownerHeaders={Authorization:`Bearer ${(await owner.json()).accessToken}`},workerHeaders={Authorization:`Bearer ${(await worker.json()).accessToken}`}
+    const stores=await request.get(api+'/api/merchant/v1/stores',{headers:ownerHeaders})
+    expect(await stores.json()).toHaveLength(1)
+    const beforeStock=await(await request.get(`${api}/api/merchant/v1/inventory?storeId=${account.storeId}`,{headers:ownerHeaders})).json()
+    const tenantId=JSON.parse(readFileSync(resolve('../runtime-logs/mall-accounts.json'),'utf8')).tenantId
+    await enterRealStore(page,tenantId)
+    await page.locator('.categories').getByRole('button',{name:'服饰配件'}).click()
+    await page.getByRole('button',{name:'基础纯棉短袖',exact:true}).click()
+    await page.getByRole('button',{name:'米白 / XL · ¥89.00',exact:true}).click()
+    await page.getByLabel('数量',{exact:true}).fill('2')
+    await page.screenshot({path:'apps/consumer-web/qa/mall-product.png'})
+    await page.getByRole('button',{name:'加入购物袋',exact:true}).click()
+    await page.getByRole('button',{name:'去结算 ›'}).click()
+    await page.getByRole('button',{name:'首次使用或原商家账号？注册统一账号'}).click()
+    await page.getByLabel('手机号',{exact:true}).fill('137'+Date.now().toString().slice(-8))
+    await page.getByLabel('称呼',{exact:true}).fill('商场验收顾客')
+    await page.getByLabel('密码',{exact:true}).fill('Mall-Consumer!2026')
+    await page.getByRole('button',{name:'注册并登录',exact:true}).click()
+    await page.getByRole('button',{name:'确认商品并试算'}).click()
+    await expect(page.getByRole('dialog',{name:'确认订单'})).toContainText('¥178.00')
+    const create=page.waitForResponse(r=>r.url().endsWith('/api/consumer/v1/orders')&&r.request().method()==='POST')
+    const pay=page.waitForResponse(r=>r.url().endsWith('/simulate-payment'))
+    await page.getByRole('button',{name:'下单并支付',exact:true}).click()
+    const order=await(await create).json()
+    expect(String(order.tenantId)).toBe(account.tenantId)
+    expect(String(order.storeId)).toBe(account.storeId)
+    const paid=await(await pay).json()
+    const verify=await request.post(`${api}/api/merchant/v1/orders/${order.id}/verify`,{headers:workerHeaders,data:{pickupCode:paid.pickupCode}})
+    expect(verify.ok()).toBe(true)
+    await page.getByRole('button',{name:'刷新状态',exact:true}).click()
+    await expect(page.getByRole('heading',{name:'已完成',exact:true})).toBeVisible()
+    await page.getByRole('button',{name:'退款 / 售后',exact:true}).click()
+    await page.getByLabel('退款原因',{exact:true}).fill('初始化验收，退还库存')
+    await page.getByRole('button',{name:'提交退款申请'}).click()
+    await expect(page.getByRole('heading',{name:'等待门店处理'})).toBeVisible()
+    const refund=await request.post(`${api}/api/merchant/v1/orders/${order.id}/refund-request`,{headers:ownerHeaders,data:{approve:true,reply:'初始化验收通过'}})
+    expect(refund.ok()).toBe(true)
+    await page.getByRole('button',{name:'关闭售后'}).click()
+    await page.getByRole('button',{name:'刷新状态',exact:true}).click()
+    await expect(page.getByRole('heading',{name:'已退款',exact:true})).toBeVisible()
+    const stock=await(await request.get(`${api}/api/merchant/v1/inventory?storeId=${account.storeId}`,{headers:ownerHeaders})).json()
+    expect(stock.map((s:any)=>[String(s.skuId),s.actualQuantity,s.reservedQuantity])).toEqual(beforeStock.map((s:any)=>[String(s.skuId),s.actualQuantity,s.reservedQuantity]))
+    await page.screenshot({path:'apps/consumer-web/qa/mall-order.png'})
+  })
+  test('two public tenants stay isolated through regional discovery, carts and orders',async({page,request})=>{
+    test.setTimeout(50000)
+    const account=JSON.parse(readFileSync(resolve('../runtime-logs/mall-accounts.json'),'utf8'))
+    await page.goto('/')
+    await page.getByRole('button',{name:/选择位置/}).click()
+    const location=page.getByRole('dialog',{name:'选择位置'})
+    await location.getByLabel('城市或区县').fill('杭州市')
+    await location.getByRole('button',{name:'确定地区'}).click()
+    await expect(page.getByRole('heading',{name:'杭州市的门店'})).toBeVisible()
+    await expect(page.locator('.market-store')).toHaveCount(2)
+    await expect(page.getByText('悦享百货 · 中心店',{exact:true})).toBeVisible()
+    await expect(page.getByText('森野花房 · 湖滨店',{exact:true})).toBeVisible()
+    await expect(page.locator('.market-store-cover img')).toHaveCount(2)
+    await page.screenshot({path:'apps/consumer-web/qa/multi-tenant-region-home.png',fullPage:true})
+
+    await page.locator(`.market-store[data-tenant-id="${account.tenantId}"]`).click()
+    await expect(page.getByRole('button',{name:'每日混合坚果',exact:true})).toBeVisible()
+    await expect(page.getByText('晨光向日葵花束',{exact:true})).toHaveCount(0)
+    await page.getByRole('button',{name:/添加每日混合坚果/}).click()
+    await page.getByRole('button',{name:'‹ 附近门店'}).click()
+
+    await page.locator(`.market-store[data-tenant-id="${account.second.tenantId}"]`).click()
+    await expect(page.getByRole('button',{name:'晨光向日葵花束',exact:true})).toBeVisible()
+    await expect(page.getByText('每日混合坚果',{exact:true})).toHaveCount(0)
+    await expect(page.getByRole('button',{name:'去结算 ›'})).toHaveCount(0)
+    await page.getByRole('button',{name:/添加晨光向日葵花束/}).click()
+    await page.getByRole('button',{name:'‹ 附近门店'}).click()
+    await page.getByRole('navigation',{name:'平台导航'}).getByRole('button',{name:'购物车'}).click()
+    await expect(page.locator('.market-visit')).toHaveCount(2)
+    await expect(page.locator('.market-visit').filter({hasText:'悦享百货 · 中心店'})).toContainText('已选 1 件')
+    await expect(page.locator('.market-visit').filter({hasText:'森野花房 · 湖滨店'})).toContainText('已选 1 件')
+    await page.screenshot({path:'apps/consumer-web/qa/multi-tenant-carts.png',fullPage:true})
+    const seed=JSON.parse(readFileSync(resolve('../runtime-logs/mall-seed.json'),'utf8'))
+    const api='http://127.0.0.1:8080',apiMobile='136'+Date.now().toString().slice(-8),apiPassword='Mall-Consumer!2026'
+    const registered=await request.post(api+'/api/consumer/v1/auth/account/register',{data:{mobile:apiMobile,password:apiPassword,memberName:'双店验收顾客'}})
+    expect(registered.ok()).toBe(true)
+    const globalToken=(await registered.json()).accessToken
+    async function createApiOrder(tenantId:string,storeId:string,skuId:string){
+      const entered=await request.post(api+'/api/consumer/v1/auth/account/enter',{headers:{Authorization:`Bearer ${globalToken}`},data:{tenantId}})
+      expect(entered.ok()).toBe(true)
+      const tenantToken=(await entered.json()).accessToken
+      const created=await request.post(api+'/api/consumer/v1/orders',{headers:{Authorization:`Bearer ${tenantToken}`},data:{tenantId,storeId,customerName:'双店验收顾客',customerMobile:apiMobile,requestId:'TWO-MALL-'+tenantId+'-'+Date.now(),items:[{skuId,quantity:1}],delivery:{method:'PICKUP'}}})
+      expect(created.ok()).toBe(true)
+      return created.json()
+    }
+    const apiSecond=await createApiOrder(account.second.tenantId,account.second.storeId,seed.second.products[0].skuIds[0])
+    const apiFirst=await createApiOrder(account.tenantId,account.storeId,seed.products[0].skuIds[0])
+    expect([String(apiFirst.tenantId),String(apiFirst.storeId),apiFirst.items[0].productName]).toEqual([account.tenantId,account.storeId,'每日混合坚果'])
+    expect([String(apiSecond.tenantId),String(apiSecond.storeId),apiSecond.items[0].productName]).toEqual([account.second.tenantId,account.second.storeId,'晨光向日葵花束'])
+  })
+})
+

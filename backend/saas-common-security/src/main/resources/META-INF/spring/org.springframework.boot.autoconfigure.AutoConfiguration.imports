@@ -1,0 +1,3 @@
+com.smartmerchant.saas.security.SaasSecurityAutoConfiguration
+com.smartmerchant.saas.security.TenantIsolationAutoConfiguration
+com.smartmerchant.saas.security.EntitlementAutoConfiguration

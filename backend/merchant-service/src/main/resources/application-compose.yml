@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:13306/saas_merchant?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Asia/Shanghai&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:saas_merchant}
+    password: ${DB_PASSWORD}
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+saas.security.entitlements.enabled: true
+saas.security.public-catalog.runtime-state.enabled: true
+
+saas.merchant.trade-service-url: ${TRADE_SERVICE_URL:http://trade-service:8085}

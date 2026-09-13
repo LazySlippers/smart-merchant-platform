@@ -1,0 +1,56 @@
+import { enterRealStore } from './marketplace-helper'
+import { test, expect } from '@playwright/test'
+
+// Opt-in: this test creates an isolated customer and order in the M3 verification brand.
+test('real H5 registration, purchase, store pickup and consumer refund request', async ({ page, request }) => {
+  test.setTimeout(60000)
+  const tenant = process.env.H5_E2E_TENANT
+  test.skip(!tenant, 'Set H5_E2E_TENANT to a brand created by scripts/m3-e2e.ps1')
+  const gateway = 'http://127.0.0.1:8080'
+  const brandResponse = await request.get(`${gateway}/api/consumer/v1/catalog/tenants/${tenant}/brand`)
+  expect(brandResponse.ok()).toBe(true)
+  const brand = await brandResponse.json()
+  const storesResponse = await request.get(`${gateway}/api/consumer/v1/catalog/tenants/${tenant}/stores`)
+  const stores = await storesResponse.json()
+  const suffix = process.env.H5_E2E_SUFFIX || stores[0].storeCode.replace('A-', '')
+  const owner = await request.post(`${gateway}/api/auth/v1/login`, { data: { username: `139${suffix.slice(-8)}`, password: 'M3-Test!2026' } })
+  expect(owner.ok()).toBe(true)
+  const ownerHeaders = { Authorization: `Bearer ${(await owner.json()).accessToken}` }
+  const settings = await request.put(`${gateway}/api/merchant/v1/consumer-settings`, { headers: ownerHeaders, data: { ...brand, displayName: '叶集 · 日常好物', headline: '把喜欢的好物带进日常。', logoUrl: '', themeColor: '#284f3d', contactPhone: '' } })
+  expect(settings.ok()).toBe(true)
+
+  await enterRealStore(page,tenant!,'shop')
+  await expect(page.getByText('叶集 · 日常好物', { exact: false }).first()).toBeVisible()
+  await page.screenshot({ path: 'apps/consumer-web/qa/real-home-mobile.png' })
+  await page.getByRole('button', { name: /^添加/ }).first().click()
+  await page.getByRole('button', { name: '去结算 ›' }).click()
+  await page.getByRole('button', { name: '首次使用或原商家账号？注册统一账号' }).click()
+  await page.getByLabel('手机号', { exact: true }).fill(`139${Date.now().toString().slice(-8)}`)
+  await page.getByLabel('称呼', { exact: true }).fill('H5验收顾客')
+  await page.getByLabel('密码', { exact: true }).fill('Consumer-H5!2026')
+  await page.getByRole('button', { name: '注册并登录', exact: true }).click()
+  await page.getByRole('button', { name: '确认商品并试算' }).click()
+  const createdPromise = page.waitForResponse(r => r.url().endsWith('/api/consumer/v1/orders') && r.request().method() === 'POST')
+  const paidPromise = page.waitForResponse(r => r.url().endsWith('/simulate-payment'))
+  await page.getByRole('button', { name: '下单并支付' }).click()
+  const created = await (await createdPromise).json()
+  const paid = await (await paidPromise).json()
+  await expect(page.getByText(paid.pickupCode, { exact: true })).toBeVisible()
+  const worker = await request.post(`${gateway}/api/auth/v1/login`, { data: { username: `m3-a-${suffix}`, password: 'Worker!2026' } })
+  expect(worker.ok()).toBe(true)
+  const verified = await request.post(`${gateway}/api/merchant/v1/orders/${created.id}/verify`, { headers: { Authorization: `Bearer ${(await worker.json()).accessToken}` }, data: { pickupCode: paid.pickupCode } })
+  expect(verified.ok()).toBe(true)
+  await page.getByRole('button', { name: '刷新状态', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '已完成', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '退款 / 售后', exact: true }).click()
+  await page.getByLabel('退款原因', { exact: true }).fill('H5真实联调退款验收')
+  await page.getByRole('button', { name: '提交退款申请' }).click()
+  await expect(page.getByRole('heading', { name: '等待门店处理' })).toBeVisible()
+  const refund = await request.post(`${gateway}/api/merchant/v1/orders/${created.id}/refund-request`, { headers: ownerHeaders, data: { approve: true, reply: '联调通过，恢复库存与权益' } })
+  expect(refund.ok()).toBe(true)
+  await page.getByRole('button', { name: '关闭售后', exact: true }).click()
+  await page.getByRole('button', { name: '刷新状态', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '已退款', exact: true })).toBeVisible()
+  await page.screenshot({ path: 'apps/consumer-web/qa/real-order-mobile.png' })
+})
+

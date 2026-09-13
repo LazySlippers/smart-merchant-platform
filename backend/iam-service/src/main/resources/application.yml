@@ -1,0 +1,28 @@
+server:
+  port: ${SERVER_PORT:8082}
+spring:
+  application:
+    name: iam-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+info.app.name: ${spring.application.name}
+saas:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-only-smart-merchant-jwt-secret-32-bytes-minimum}
+      issuer: smart-merchant-saas
+      access-ttl: ${JWT_ACCESS_TTL:PT30M}
+      refresh-ttl: ${JWT_REFRESH_TTL:P7D}
+    internal-signing-key: ${INTERNAL_SIGNING_KEY:dev-only-internal-context-signing-key-32-bytes}
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    username: ${BOOTSTRAP_ADMIN_USERNAME:platform-admin}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}

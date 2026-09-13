@@ -1,0 +1,1 @@
+package com.smartmerchant.saas.merchant.infrastructure;import com.baomidou.mybatisplus.core.mapper.BaseMapper;import com.smartmerchant.saas.merchant.domain.ProductSku;import org.apache.ibatis.annotations.Mapper;@Mapper public interface ProductSkuMapper extends BaseMapper<ProductSku>{}

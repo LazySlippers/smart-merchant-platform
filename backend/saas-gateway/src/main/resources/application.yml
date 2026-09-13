@@ -1,0 +1,115 @@
+server:
+  port: ${SERVER_PORT:8080}
+spring:
+  application:
+    name: saas-gateway
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+              lower-case-service-id: true
+          default-filters:
+            - RemoveRequestHeader=X-Tenant-Id
+            - RemoveRequestHeader=X-User-Id
+            - RemoveRequestHeader=X-Internal-Caller
+            - RemoveRequestHeader=X-Internal-Signature
+          routes:
+            - id: consumer-brand-route
+              order: -30
+              uri: ${TENANT_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/consumer/v1/catalog/tenants/*/brand,/api/merchant/v1/consumer-settings
+            - id: merchant-subscription-route
+              uri: ${TENANT_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/merchant/v1/subscription,/api/merchant/v1/subscription/**
+            - id: public-tenant-route
+              uri: ${TENANT_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/public/v1/tenant-applications,/api/public/v1/plans
+            - id: auth-route
+              uri: ${IAM_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/auth/**
+            - id: platform-tenant-route
+              uri: ${TENANT_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/platform/v1/tenant-applications/**,/api/platform/v1/tenants/**,/api/platform/v1/plans/**,/api/public/v1/tenant-applications/**,/api/public/v1/plans/**
+            - id: platform-analytics-route
+              uri: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/platform/v1/dashboard/**
+            - id: platform-iam-route
+              order: -10
+              uri: ${IAM_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/platform/v1/tenants/*/owner,/api/platform/v1/me
+            - id: merchant-iam-route
+              uri: ${IAM_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/merchant/v1/me/**,/api/merchant/v1/users/**,/api/merchant/v1/roles/**,/api/merchant/v1/permissions/**
+            - id: merchant-catalog-route
+              uri: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/merchant/v1/stores/**,/api/merchant/v1/employees/**,/api/merchant/v1/categories/**,/api/merchant/v1/products/**,/api/merchant/v1/skus/**,/api/merchant/v1/inventory/**,/api/merchant/v1/stock-counts/**,/api/merchant/v1/transfers/**
+            - id: consumer-catalog-route
+              order: -10
+              uri: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/consumer/v1/catalog/**
+            - id: consumer-trade-route
+              order: -20
+              uri: ${TRADE_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/consumer/v1/orders/**
+            - id: payment-callback-route
+              order: -20
+              uri: ${TRADE_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/payment/v1/callback/**
+            - id: payment-callback-route
+              order: -20
+              uri: ${TRADE_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/payment/v1/callback/**
+            - id: merchant-member-route
+              uri: ${MEMBER_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/merchant/v1/members,/api/merchant/v1/members/**,/api/merchant/v1/coupon-templates,/api/merchant/v1/coupon-templates/**,/api/merchant/v1/benefit-ledgers,/api/merchant/v1/benefit-ledgers/**,/api/merchant/v1/consumer-feedback,/api/merchant/v1/consumer-feedback/**,/api/consumer/v1/**
+            - id: merchant-trade-route
+              uri: ${TRADE_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/merchant/v1/orders/**,/api/merchant/v1/settlements/**
+            - id: merchant-analytics-route
+              uri: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/merchant/v1/dashboard/**,/api/merchant/v1/analytics/**
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+info:
+  app:
+    name: ${spring.application.name}
+saas:
+  security:
+    runtime-state:
+      enabled: ${TENANT_RUNTIME_STATE_ENABLED:true}
+    jwt:
+      secret: ${JWT_SECRET:dev-only-smart-merchant-jwt-secret-32-bytes-minimum}
+      issuer: smart-merchant-saas
+    internal-signing-key: ${INTERNAL_SIGNING_KEY:dev-only-internal-context-signing-key-32-bytes}

@@ -1,0 +1,9 @@
+ALTER TABLE orders ADD COLUMN delivery_method VARCHAR(16) NOT NULL DEFAULT 'PICKUP';
+ALTER TABLE orders ADD COLUMN shipping_fee_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN recipient_name VARCHAR(64);
+ALTER TABLE orders ADD COLUMN recipient_phone VARCHAR(32);
+ALTER TABLE orders ADD COLUMN recipient_province VARCHAR(32);
+ALTER TABLE orders ADD COLUMN recipient_address VARCHAR(512);
+ALTER TABLE orders ADD COLUMN carrier VARCHAR(64);
+ALTER TABLE orders ADD COLUMN tracking_no VARCHAR(96);
+ALTER TABLE orders ADD COLUMN shipped_at TIMESTAMP(3);

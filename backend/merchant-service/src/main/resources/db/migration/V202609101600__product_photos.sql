@@ -1,0 +1,1 @@
+CREATE TABLE product_photo (id VARCHAR(36) PRIMARY KEY, tenant_id BIGINT NOT NULL, content_type VARCHAR(32) NOT NULL, content LONGBLOB NOT NULL);

@@ -1,0 +1,14 @@
+{
+  "name": "@smart-merchant/consumer-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5177",
+    "build": "vue-tsc -b && vite build",
+    "typecheck": "vue-tsc -b --noEmit",
+    "test": "vitest run src/domain.test.ts"
+  },
+  "dependencies": { "vue": "3.5.18" },
+  "devDependencies": { "@vitejs/plugin-vue": "6.0.1", "typescript": "5.8.3", "vite": "7.0.6", "vue-tsc": "2.2.12", "vitest": "3.2.4" }
+}

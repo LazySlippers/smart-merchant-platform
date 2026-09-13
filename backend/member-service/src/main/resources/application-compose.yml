@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:13306/saas_member?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Asia/Shanghai&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:saas_member}
+    password: ${DB_PASSWORD}
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+saas.security.entitlements.enabled: true
+saas.member.analytics-service-url: ${MERCHANT_SERVICE_URL:http://merchant-service:8083}

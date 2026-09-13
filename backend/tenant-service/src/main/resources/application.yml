@@ -1,0 +1,25 @@
+server:
+  port: ${SERVER_PORT:8081}
+spring:
+  application:
+    name: tenant-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+info.app.name: ${spring.application.name}
+saas:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-only-smart-merchant-jwt-secret-32-bytes-minimum}
+      issuer: smart-merchant-saas
+    internal-signing-key: ${INTERNAL_SIGNING_KEY:dev-only-internal-context-signing-key-32-bytes}
+iam:
+  service:
+    url: ${IAM_SERVICE_URL:http://localhost:8082}

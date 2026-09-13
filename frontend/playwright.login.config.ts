@@ -1,0 +1,2 @@
+import {defineConfig,devices} from '@playwright/test'
+export default defineConfig({testDir:'./tests/e2e',testMatch:'login-ui.spec.ts',use:{...devices['Desktop Chrome'],screenshot:'only-on-failure'},webServer:[5173,5174,5176].map((port,i)=>({command:`pnpm --filter @smart-merchant/${['platform','merchant','store'][i]}-web dev --host 127.0.0.1`,url:`http://127.0.0.1:${port}`,reuseExistingServer:true}))})

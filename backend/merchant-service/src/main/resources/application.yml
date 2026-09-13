@@ -1,0 +1,27 @@
+server:
+  port: ${SERVER_PORT:8083}
+spring:
+  application:
+    name: merchant-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+info.app.name: ${spring.application.name}
+iam.service.url: ${IAM_SERVICE_URL:http://localhost:8082}
+saas:
+  merchant:
+    trade-service-url: ${TRADE_SERVICE_URL:http://localhost:8085}
+  security:
+    tenant-isolation:
+      enabled: true
+    entitlements:
+      enabled: ${ENTITLEMENT_ENFORCEMENT_ENABLED:false}
+    jwt:
+      issuer: ${JWT_ISSUER:smart-merchant-saas}
+      secret: ${JWT_SECRET:change-me-change-me-change-me-32-bytes}
+    internal-signing-key: ${INTERNAL_SIGNING_KEY:dev-only-internal-context-signing-key-32-bytes}

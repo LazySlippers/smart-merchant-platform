@@ -1,0 +1,12 @@
+ALTER TABLE stock_transfer ADD COLUMN delivery_mode VARCHAR(24) NOT NULL DEFAULT 'STORE';
+ALTER TABLE stock_transfer ADD COLUMN recipient_name VARCHAR(80);
+ALTER TABLE stock_transfer ADD COLUMN recipient_phone VARCHAR(32);
+ALTER TABLE stock_transfer ADD COLUMN delivery_address VARCHAR(512);
+ALTER TABLE stock_transfer ADD COLUMN order_paid_amount_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE stock_transfer ADD CONSTRAINT ck_transfer_paid_amount CHECK (order_paid_amount_cents >= 0);
+ALTER TABLE stock_transfer ADD COLUMN order_id BIGINT;
+ALTER TABLE stock_transfer ADD COLUMN order_no VARCHAR(64);
+CREATE INDEX idx_transfer_order ON stock_transfer(tenant_id, order_id);
+ALTER TABLE stock_transfer ADD COLUMN order_sync_pending BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE stock_transfer ADD COLUMN shipped_data_scope VARCHAR(32);
+ALTER TABLE stock_transfer ADD COLUMN order_sync_error VARCHAR(512);

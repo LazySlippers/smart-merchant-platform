@@ -1,0 +1,43 @@
+server:
+  port: ${SERVER_PORT:8085}
+spring:
+  application:
+    name: trade-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+info.app.name: ${spring.application.name}
+saas:
+  security:
+    tenant-isolation:
+      enabled: true
+    entitlements:
+      enabled: ${ENTITLEMENT_ENFORCEMENT_ENABLED:false}
+    jwt:
+      issuer: ${JWT_ISSUER:smart-merchant-saas}
+      secret: ${JWT_SECRET:change-me-change-me-change-me-32-bytes}
+    internal-signing-key: ${INTERNAL_SIGNING_KEY:dev-only-internal-context-signing-key-32-bytes}
+  trade:
+    simulated-payment-enabled: ${SIMULATED_PAYMENT_ENABLED:false}
+    merchant-service-url: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+    member-service-url: ${MEMBER_SERVICE_URL:http://localhost:8084}
+    analytics-service-url: ${MERCHANT_SERVICE_URL:http://localhost:8083}
+    unpaid-timeout-minutes: ${UNPAID_ORDER_TIMEOUT_MINUTES:15}
+    payment:
+      callback-tolerance-seconds: ${PAYMENT_CALLBACK_TOLERANCE_SECONDS:300}
+      sandbox:
+        enabled: ${SANDBOX_PAYMENT_ENABLED:false}
+        callback-secret: ${SANDBOX_PAYMENT_CALLBACK_SECRET:local-sandbox-callback-secret-change-me}
+      wechat:
+        enabled: ${WECHAT_PAYMENT_ENABLED:false}
+        merchant-id: ${WECHAT_PAYMENT_MERCHANT_ID:}
+        private-key: ${WECHAT_PAYMENT_PRIVATE_KEY:}
+      alipay:
+        enabled: ${ALIPAY_PAYMENT_ENABLED:false}
+        app-id: ${ALIPAY_PAYMENT_APP_ID:}
+        private-key: ${ALIPAY_PAYMENT_PRIVATE_KEY:}

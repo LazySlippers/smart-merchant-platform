@@ -1,0 +1,14 @@
+package com.smartmerchant.saas.member;
+
+import com.smartmerchant.saas.member.application.MemberBenefitService;
+import com.smartmerchant.saas.security.TenantContext;import com.smartmerchant.saas.security.TenantContextHolder;
+import org.junit.jupiter.api.*;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.boot.test.context.SpringBootTest;import org.springframework.jdbc.core.JdbcTemplate;
+import java.time.LocalDateTime;import java.util.Set;
+import static org.assertj.core.api.Assertions.*;
+
+@SpringBootTest(properties="spring.cloud.nacos.discovery.enabled=false") class MemberBenefitIntegrationTests {
+ @Autowired MemberBenefitService benefits;@Autowired JdbcTemplate jdbc;
+ @BeforeEach void set(){TenantContextHolder.set(new TenantContext(41,701,false,"TENANT_ALL",Set.of("merchant:member:manage")));}
+ @AfterEach void clear(){TenantContextHolder.clear();jdbc.update("DELETE FROM analytics_outbox");jdbc.update("DELETE FROM benefit_ledger");jdbc.update("DELETE FROM member_coupon");jdbc.update("DELETE FROM coupon_template");jdbc.update("DELETE FROM points_ledger");jdbc.update("DELETE FROM stored_value_ledger");jdbc.update("DELETE FROM points_account");jdbc.update("DELETE FROM stored_value_account");jdbc.update("DELETE FROM member");}
+ @Test void tenantScopedBenefitFreezesConfirmsAndReleasesIdempotently(){var member=benefits.register(41,"13800000000","张三");benefits.adjustPoints(member.id(),500,"points-1");benefits.adjustStoredValue(member.id(),1000,"stored-1");var template=benefits.createTemplate("WELCOME","欢迎券",300,1000,1,LocalDateTime.now().minusMinutes(1),LocalDateTime.now().plusDays(1));benefits.changeTemplateStatus(template.id(),"ACTIVE",template.version());var coupon=benefits.claim(41,template.id(),member.mobile(),"claim-1");var request=new MemberBenefitService.BenefitRequest(41,9001,member.mobile(),coupon.id(),200,700,2000);var quote=benefits.freeze(request);assertThat(quote.payableAmountCents()).isEqualTo(800);assertThat(benefits.get(41,member.mobile())).extracting(MemberBenefitService.MemberView::availablePoints,MemberBenefitService.MemberView::storedValueCents).containsExactly(300L,300L);benefits.release(request);benefits.release(request);assertThat(benefits.get(41,member.mobile())).extracting(MemberBenefitService.MemberView::availablePoints,MemberBenefitService.MemberView::storedValueCents).containsExactly(500L,1000L);var second=new MemberBenefitService.BenefitRequest(41,9002,member.mobile(),coupon.id(),200,700,2000);benefits.freeze(second);benefits.confirm(second);benefits.confirm(second);assertThat(benefits.get(41,member.mobile())).extracting(MemberBenefitService.MemberView::availablePoints,MemberBenefitService.MemberView::storedValueCents).containsExactly(300L,300L);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM benefit_ledger WHERE tenant_id=41",Long.class)).isEqualTo(12);}
+}
